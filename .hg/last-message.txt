@@ -1,0 +1,7 @@
+from PEGHighlight:
+- separate non-generic core
+- check left recursion
+- grammar error reporting
+- tests
+- program pointers experiment
+

@@ -1,0 +1,8 @@
+handle left recursion
+    https://github.com/dlang-community/Pegged/wiki/Left-Recursion
+    https://web.cs.ucla.edu/~todd/research/pepm08.pdf
+    https://medium.com/@gvanrossum_83706/left-recursive-peg-grammars-65dab3c580e1
+optimize Choice of Literals, for keywords
+PEMachine Codable
+what parse tree for tail calls?
+\xhh \uhhhh \Uhhhhhh hexadecimal escape character
