@@ -365,6 +365,7 @@ extension PEMachine.Builder {
             return s.first!
         default:
             assertionFailure("Char unexpected symbol \(parse.nodeSymbol(ti))")
+            return "\u{FFFD}"
         }
     }
 

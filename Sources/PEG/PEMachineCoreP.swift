@@ -4,6 +4,7 @@
 //
 //  Created by Andy Hooper on 2026-10-08.
 //
+//  Experiment with program pointers instead of indices
 //  https://www.swift.org/blog/migrating-truetype-hinting-to-swift/
 //  https://github.com/apple/truetype-hinting-interpreter-example.git
 //  https://github.com/swiftwasm/WasmKit.git
