@@ -5,12 +5,12 @@
 //  Created by Andy Hooper on 2026-09-20.
 //
 
-extension PEMachine.Builder {
+extension PEMachine {
     
-    enum PE: CustomStringConvertible, Sendable
-                where Symbol: RawRepresentable,
-                      Symbol.RawValue == Int,
-                      Symbol: Sendable {
+    public enum PE: CustomStringConvertible, Sendable
+    where Symbol: RawRepresentable,
+          Symbol.RawValue == Int,
+          Symbol: Sendable {
         case any(Int)
         case lit(String)
         case chrs(String)
@@ -23,7 +23,7 @@ extension PEMachine.Builder {
         indirect case opt(PE)
         indirect case not(PE)
         indirect case pred(PE)
-        var description: String {
+        public var description: String {
             switch self {
             case let .any(any):
                 "any(\(any))"
@@ -52,8 +52,11 @@ extension PEMachine.Builder {
             }
         }
     }
-    
-    typealias Bootstrap = [Symbol: PE]
+}
+
+extension PEMachine.Builder {
+
+    typealias Bootstrap = [Symbol: PEMachine.PE]
                     where Symbol: Hashable & RawRepresentable & CaseIterable,
                     Symbol.RawValue == Int
 
@@ -85,7 +88,7 @@ extension PEMachine.Builder {
         if !undef.isEmpty { errors.append("Undefined symbols \(undef)") }
     }
     
-    private mutating func compile(_ def: PE)
+    private mutating func compile(_ def: PEMachine.PE)
                     where Symbol: Hashable & RawRepresentable & CaseIterable,
                     Symbol.RawValue == Int {
         // This compile does not do the optimizations of the main

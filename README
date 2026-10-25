@@ -1,2 +1,12 @@
 PEG parsing based on the Lua lpeg machine described
 by Ierusalimschy: https://www.inf.puc-rio.br/~roberto/docs/peg.pdf
+
+The grammar source format is that of chpeg, https://github.com/ChrisHixon/chpeg/blob/master/grammars/chpeg.chpeg,
+with the addition that a definition identifier starting with underscore is not added to the parse tree, and
+definition options other than "I" are ignored. Left-recursive definitions are detected but not handled.
+
+Speed is competitive with chpeg on a C lexical scanner for a large source file:
+    chpeg time 0.044919292 seconds
+    cpp-peglib time 0.027614583 seconds -38.5 %
+    PEMachine time 0.037643 seconds -16.2 %
+    text 455620 end 455621[utf8] nodes 55419

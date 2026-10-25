@@ -52,6 +52,15 @@ extension PEMachine.Builder {
 
     init(_ parse: PEMachine<chpegSymbol>.ParseResult.Success)  where Symbol == PENamedSymbol {
         program = []
+        //parse.printTree()
+        //parse.rootContext.visitChildren { def in
+        //    print(def.symbol, def.string)
+        //}
+//        let defSyms = parse.rootContext.mapChildren { def in
+//            //    Definition  { } <- Identifier S ('{' S Options S '}' S)? '<-' S Choice
+//            //def[0].string
+//            def[.Identifier]!.string
+//        }
         let defSyms = [PEMachine.Tree.Index](parse.tree.childIndices(parse.tree.root)!).compactMap { di in
             if parse.tree[di].has(chpegSymbol.Definition) {
                 var defi = parse.tree.childIndices(di)!
@@ -263,13 +272,15 @@ extension PEMachine.Builder {
                 } else if let litx = children.opt(chpegSymbol.Literal) {
                     //    Literal     {S} <- ['] (!['] Char)* [']
                     //                     / ["] (!["] Char)* ["]
-                    let charx = parse.tree.childIndices(litx)!.filter{parse.tree[$0].has(chpegSymbol.Char)}
-                    let chars = String(charx.map{char(parse,$0)})
-                    if chars.count == 1 {
-                        program.append(.chr(PEMachineCore.uc(chars).first!))
-                    } else if chars.count > 1 {
-                        program.append(.lit(PEMachineCore.uc(chars.first!),
-                                            PEMachineCore.uc(String(chars.dropFirst()))))
+                    if let chari = parse.tree.childIndices(litx) {
+                        let charx = chari.filter{parse.tree[$0].has(chpegSymbol.Char)}
+                        let chars = String(charx.map{char(parse,$0)})
+                        if chars.count == 1 {
+                            program.append(.chr(PEMachineCore.uc(chars).first!))
+                        } else /*if chars.count > 1*/ {
+                            program.append(.lit(PEMachineCore.uc(chars.first!),
+                                                PEMachineCore.uc(String(chars.dropFirst()))))
+                        }
                     } else {
                         // empty
                     }

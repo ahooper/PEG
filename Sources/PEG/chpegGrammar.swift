@@ -75,7 +75,7 @@ public enum chpegSymbol: Int, CaseIterable, Sendable {
         Dot,
         _S
 }
-let chpegGrammar: PEMachine<chpegSymbol>.Builder.Bootstrap = [
+public let chpegGrammar: [chpegSymbol: PEMachine<chpegSymbol>.PE] = [
     // # Hierarchical syntax
     
     // Grammar     {S} <- S Definition+ !.

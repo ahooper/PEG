@@ -12,8 +12,8 @@ import class Foundation.NSString // String(format:,...)
 public struct LinearTree<Identifier:Equatable,Value> {
     /*
      Linear tree nodes are stored in an array in bottom-up order, all cildren
-     before the parent (as in post-order traversal). Nodes are constructed
-     with fields to facilitate traversal.
+     before the parent (as in post-order traversal). Nodes are constructed in
+     post-order with fields to facilitate traversal.
                    index first next
               ┌C1    0     ⁃    1
               ├C2    1     ⁃    2
@@ -26,14 +26,17 @@ public struct LinearTree<Identifier:Equatable,Value> {
      first child). When its parent branch is added, the `next` fields of the
      children are replaced with the index of the next child at their level.
      
-     This linearized tree is much faster to build than a structured tree, such as
+     For PEG parsing, this linearized tree is much faster to build than a
+     structured tree, such as
          enum Tree {
              case leaf(name:Identifier, value:Value)
              case branch(name:Identifier, children:[Tree])
          }
-     2025-01-26: Profiling suggested half the parse time was building this tree.
-     2026-09-17: 20% of parse time went to discard(), now 12% using removeLast
-     2026-09-23: replace append and removeLast with explicit indices
+     
+     With PEG backtracking, the tree is frequently rebuilt in place. There is
+     benefit in not keeping the node storage allocation tight to the current
+     tree contents. `nodesMax` tracks the highest node index ever added, while
+     `nodesLast` is the index of the last node built.
      */
     public struct Node {
         public let identifier:Identifier, value:Value, first:Index, next:Index
@@ -48,7 +51,7 @@ public struct LinearTree<Identifier:Equatable,Value> {
         }
     }
     public typealias NodeArray = Array<Node>
-        // Array seems to have a slight performance edge over ContiguousArray,
+        // Array seems unexpectedly to have a slight performance edge over ContiguousArray
     public typealias Index = NodeArray.Index
     internal var nodes: NodeArray,
                  nodesMax: Index,
@@ -59,37 +62,25 @@ public struct LinearTree<Identifier:Equatable,Value> {
         nodesMax = Index(nodes.count - 1)
         nodesLast = Index(-1)
     }
-    #if false
-    deinit {
-        //nodes.deallocate()
-    }
-    mutating func expand() {
-        let expand = NodeArray.allocate(capacity: nodes.count*2)
-        let tail = expand.moveInitialize(fromContentsOf: nodes)
-        let old = nodes
-        nodes = expand
-        old.deallocate()
-        nodesMax = nodes.count - 1
-    }
-    #endif
     
     public subscript(_ index: Index)->Node { nodes[index] }
     
     // == Building ==
     
-    /// sentinal value for last child
+    /// `next` sentinel value for last child
     // static let LAST = -1 // Static stored properties not supported in generic types
+    /// `first` sentinel value for no children
+    // static let LEAF = -1 // Static stored properties not supported in generic types
    
     /// Record the start of a new node
     public typealias Mark = Index
-    //var mark: Mark { nodes.endIndex }
     public var mark: Mark { nodesLast + 1 }
     
     /// Close a new node
     public mutating func end(_ identifier: Identifier, _ begin: Mark, _ value: Value) {
         //print(nodes.endIndex, "end", identifier, begin, value)
         assert(begin <= nodes.endIndex)
-        // link children for left-to-right traversal
+        // Link children for left-to-right traversal.
         // When a branch is added, `next` holds the start index of its subtree (the
         // first child). When its parent branch is added, the `next` fields of the
         // children are replaced with the index of the next child at their level.
@@ -110,12 +101,13 @@ public struct LinearTree<Identifier:Equatable,Value> {
                 child = nodes.index(before: cn.next)
             }
         }
-        //nodes.append(Node(identifier: identifier, value: value, first: next, next: begin))
+        let first = (next <= nodesLast) ? next
+                                        : /*LEAF*/-1 // no children
         if nodesLast < nodesMax {
             nodesLast += 1
-            nodes[nodesLast] = Node(identifier: identifier, value: value, first: next, next: begin)
+            nodes[nodesLast] = Node(identifier: identifier, value: value, first: first, next: begin)
         } else {
-            nodes.append(Node(identifier: identifier, value: value, first: next, next: begin))
+            nodes.append(Node(identifier: identifier, value: value, first: first, next: begin))
             nodesMax = nodes.count - 1
             nodesLast = nodesMax
         }
@@ -124,9 +116,6 @@ public struct LinearTree<Identifier:Equatable,Value> {
     /// Discard a subtree being built
     public mutating func discard(_ begin: Mark) {
         assert(begin <= nodes.endIndex)
-        //nodes.removeSubrange(begin...) was slow
-        //nodes.replaceSubrange(begin..., with: EmptyCollection<Node>()) was slow
-        //nodes.removeLast(nodes.distance(from: begin, to: nodes.endIndex))
         nodesLast = begin - 1
     }
         
@@ -174,7 +163,7 @@ public struct LinearTree<Identifier:Equatable,Value> {
             return nil
         }
         
-        func filter(_ identifier: Identifier)->LazyFilterSequence<LazySequence<IndexIterator>.Elements> {
+        public func filter(_ identifier: Identifier)->LazyFilterSequence<LazySequence<IndexIterator>.Elements> {
             lazy.filter { e in nodes[e].has(identifier) }
         }
 
@@ -182,7 +171,7 @@ public struct LinearTree<Identifier:Equatable,Value> {
     
     public func childIndices(_ index: Index)->IndexIterator? {
         let n = nodes[index]
-        return if n.first == index { nil }
+        return if n.first == /*LEAF*/-1 { nil } // no children
                else { IndexIterator(nodes: nodes, _next: n.first) }
     }
 

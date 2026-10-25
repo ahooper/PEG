@@ -18,11 +18,19 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
     public typealias Tree = PEMachineCore.Tree
     
     public enum ParseResult {
-        public struct Success {
+        public class Success {
+            // a class because this is created infrequently, but copied
+            // frequently in Contexts.
             public let text: UniView,
                        endIndex: UniView.Index,
                        tree: Tree,
                        symbols: Symbols
+            init(text: UniView, endIndex: UniView.Index, tree: Tree, symbols: Symbols) {
+                self.text = text
+                self.endIndex = endIndex
+                self.tree = tree
+                self.symbols = symbols
+            }
             public func nodeText(_ index: Tree.Index)->UniView.SubSequence {
                 text[tree[index].value]
             }
@@ -36,12 +44,18 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
                 tree[index].identifier
             }
         }
-        public struct Failure {
+        public class Failure {
             #if DEBUG
             public let text: UniView,
                        endIndex: UniView.Index,
                        stack: [(PEMachineCore.Symbols.Index, UniView.Index)],
                        symbols: Symbols
+            init(text: UniView, endIndex: UniView.Index, stack: [(PEMachineCore.Symbols.Index, UniView.Index)], symbols: Symbols) {
+                self.text = text
+                self.endIndex = endIndex
+                self.stack = stack
+                self.symbols = symbols
+            }
             #endif
         }
         case success(Success)
@@ -125,6 +139,10 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
         let sym = symbolIndex(symName)!
         return parse(sym, uctext, trace: trace)
     }
+    
+    public func printProgram() {
+        core.printProgram()
+    }
 
 }
 
@@ -171,3 +189,72 @@ extension PEMachine.ParseResult.Success {
     }
 }
 
+extension PEMachine.ParseResult.Success {
+    public struct Context: Sequence, IteratorProtocol {
+        private let result: PEMachine.ParseResult.Success
+        internal var index: PEMachine.Tree.Index
+        public var symbol: PEMachine.Symbols.Element { result.nodeSymbol(index) }
+        public var string: String { result.nodeString(index) }
+        internal init(result: PEMachine.ParseResult.Success, index: PEMachine.Tree.Index) {
+            self.result = result
+            self.index = index
+        }
+        public func visitChildren(calling: (Context)->Void) {
+            let first = result.tree.nodes[index].first
+            if first == index { return } // no children
+            var childContext = Context(result: result, index: first)
+            while childContext.index != /*LAST*/-1 {
+                calling(childContext)
+                childContext.index = result.tree.nodes[childContext.index].next
+            }
+        }
+        public func mapChildren<T>(calling: (Context)->T)->[T] {
+            let first = result.tree.nodes[index].first
+            if first == index { return [] } // no children
+            var childContext = Context(result: result, index: first),
+                mapped = [T]()
+            while childContext.index != /*LAST*/-1 {
+                mapped.append(calling(childContext))
+                childContext.index = result.tree.nodes[childContext.index].next
+            }
+            return mapped
+        }
+        public subscript(child: Int)->Context {
+            var c = result.tree.nodes[index].first,
+                skip = child
+            if c == index { preconditionFailure("Index out of bounds") } // no children
+            while skip > 0 {
+                if c == /*LAST*/-1 { preconditionFailure("Index out of bounds") }
+                c = result.tree.nodes[c].next
+            }
+            return Context(result: result, index: c)
+        }
+        public subscript(child: Symbol)->Context? where Symbol: Equatable {
+            var c = result.tree.nodes[index].first
+            if c == index { return nil } // no children
+            while c != /*LAST*/-1 {
+                if result.nodeSymbol(c) == child {
+                    return Context(result: result, index: c)
+                }
+                c = result.tree.nodes[c].next
+            }
+            return nil // not found
+        }
+        
+        // == Sequence conformance ==
+        
+        public typealias Element = Context
+        public mutating func next() -> Context? {
+            if index == /*LAST*/-1 { return nil }
+            let i = index
+            index = result.tree.nodes[index].next
+            return Context(result: result, index: i)
+        }
+        public func makeIterator() -> Context {
+            precondition(result.tree.nodes[index].first != /*LEAF*/-1)
+            return Context(result: result, index: result.tree.nodes[index].first)
+        }
+
+    }
+    var rootContext: Context { Context(result: self, index: tree.root) }
+}
