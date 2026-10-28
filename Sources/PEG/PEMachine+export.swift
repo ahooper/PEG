@@ -48,11 +48,11 @@ extension PEMachine {
             let inst = core.program[$0]
             switch inst {
             case let .lit(first,rest):
-                print("       /*\($0)*/.lit(\(first), \(String(rest).debugDescription).utf16),")
+                print("       /*\($0)*/.lit(\(first), PEMachineCore.uniText(\(PEMachineCore.uniString(rest).debugDescription))),")
             case let .chrs(uc):
-                print("       /*\($0)*/.chrs(\(String(uc).debugDescription).utf16),")
+                print("       /*\($0)*/.chrs(PEMachineCore.uniText(\(PEMachineCore.uniString(uc).debugDescription))),")
             case let .span(uc):
-                print("       /*\($0)*/.span(\(String(uc).debugDescription).utf16),")
+                print("       /*\($0)*/.span(PEMachineCore.uniText(\(PEMachineCore.uniString(uc).debugDescription))),")
             case let .call(call):
                 print("       /*\($0)*/.\(inst), // \(symbols[call])")
             default:

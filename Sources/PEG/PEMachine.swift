@@ -5,7 +5,7 @@
 //  Created by Andy Hooper on 2026-09-20.
 //
 
-public struct PEMachine<Symbol:Sendable>: Sendable {
+public struct PEMachine<Symbol> {
     
     // The core is defined separately in hope the compiler will better optimize
     // the core 'parse' function. Generics are applied in this wrapper.
@@ -13,29 +13,28 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
     public typealias Symbols = [Symbol]
     public let symbols: Symbols
     let core: PEMachineCore
-    public typealias UniView = PEMachineCore.UniView
-    public typealias UniChar = PEMachineCore.UniChar
+    public typealias UniText = PEMachineCore.UniText
     public typealias Tree = PEMachineCore.Tree
     
     public enum ParseResult {
         public class Success {
             // a class because this is created infrequently, but copied
             // frequently in Contexts.
-            public let text: UniView,
-                       endIndex: UniView.Index,
+            public let text: UniText,
+                       endIndex: UniText.Index,
                        tree: Tree,
                        symbols: Symbols
-            init(text: UniView, endIndex: UniView.Index, tree: Tree, symbols: Symbols) {
+            init(text: UniText, endIndex: UniText.Index, tree: Tree, symbols: Symbols) {
                 self.text = text
                 self.endIndex = endIndex
                 self.tree = tree
                 self.symbols = symbols
             }
-            public func nodeText(_ index: Tree.Index)->UniView.SubSequence {
+            public func nodeText(_ index: Tree.Index)->UniText.SubSequence {
                 text[tree[index].value]
             }
             public func nodeString(_ index: Tree.Index)->String {
-                String(nodeText(index))!
+                PEMachineCore.uniString(nodeText(index))
             }
             public func nodeSymbol(_ index: Tree.Index)->Symbol {
                 symbols[tree[index].identifier]
@@ -46,11 +45,11 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
         }
         public class Failure {
             #if DEBUG
-            public let text: UniView,
-                       endIndex: UniView.Index,
-                       stack: [(PEMachineCore.Symbols.Index, UniView.Index)],
+            public let text: UniText,
+                       endIndex: UniText.Index,
+                       stack: [(PEMachineCore.Symbols.Index, UniText.Index)],
                        symbols: Symbols
-            init(text: UniView, endIndex: UniView.Index, stack: [(PEMachineCore.Symbols.Index, UniView.Index)], symbols: Symbols) {
+            init(text: UniText, endIndex: UniText.Index, stack: [(PEMachineCore.Symbols.Index, UniText.Index)], symbols: Symbols) {
                 self.text = text
                 self.endIndex = endIndex
                 self.stack = stack
@@ -65,19 +64,19 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
     public func parse(_ symbol: Symbol, _ text: String, trace: Bool = false)->ParseResult
                         where Symbol: RawRepresentable,
                               Symbol.RawValue == Int {
-        let uctext = PEMachineCore.uc(text)
+        let uctext = PEMachineCore.uniText(text)
         let mr = core.parse(symbol.rawValue, uctext, trace: trace)
         return makeResult(mr, uctext)
     }
 
-    public func parse(_ symbol: Symbol, _ uctext: UniView, trace: Bool = false)->ParseResult
+    public func parse(_ symbol: Symbol, _ uctext: UniText, trace: Bool = false)->ParseResult
                         where Symbol: RawRepresentable,
                               Symbol.RawValue == Int {
         let mr = core.parse(symbol.rawValue, uctext, trace: trace)
         return makeResult(mr, uctext)
     }
     
-    private func makeResult(_ mr: PEMachineCore.CoreResult, _ text: UniView)->ParseResult {
+    private func makeResult(_ mr: PEMachineCore.CoreResult, _ text: UniText)->ParseResult {
         // build full ParseResult from internal CoreResult
         switch mr {
           
@@ -103,7 +102,7 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
     }
     
     #if DEBUG
-    private func failStack(_ fail: PEMachineCore.Fail) -> [(PEMachineCore.Symbols.Index, String.Index)] {
+    private func failStack(_ fail: PEMachineCore.Fail) -> [(PEMachineCore.Symbols.Index, PEMachineCore.UniText.Index)] {
         fail.stack.compactMap { cs in
             if case let .call(call) = core.program[cs.ret-1] {
                 return core.ignore[call] ? nil : (call, cs.index)
@@ -116,7 +115,7 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
     #endif
 
     func parse(_ symbol: PEMachineCore.Symbols.Index, _ text: String, trace: Bool = false)->ParseResult {
-        let uctext = PEMachineCore.uc(text)
+        let uctext = PEMachineCore.uniText(text)
         let mr = core.parse(symbol, uctext, trace: trace)
         return makeResult(mr, uctext)
     }
@@ -130,12 +129,12 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
         return parse(sym, text, trace: trace)
     }
     
-    func parse(_ symbol: PEMachineCore.Symbols.Index, _ uctext: UniView, trace: Bool = false)->ParseResult {
+    func parse(_ symbol: PEMachineCore.Symbols.Index, _ uctext: UniText, trace: Bool = false)->ParseResult {
         let mr = core.parse(symbol, uctext, trace: trace)
         return makeResult(mr, uctext)
     }
 
-    public func parse(_ symName: String, _ uctext: UniView, trace: Bool = false)->ParseResult {
+    public func parse(_ symName: String, _ uctext: UniText, trace: Bool = false)->ParseResult {
         let sym = symbolIndex(symName)!
         return parse(sym, uctext, trace: trace)
     }
@@ -149,18 +148,18 @@ public struct PEMachine<Symbol:Sendable>: Sendable {
 #if DEBUG
 extension PEMachine.ParseResult.Failure {
     public func printFailure() {
-        let lineEnds = text[..<endIndex].indices(of: PEMachineCore.uc("\n")).ranges,
+        let lineEnds = text[..<endIndex].indices(of: PEMachineCore.uniChar("\n")).ranges,
             lastLineStart = lineEnds.last?.upperBound
         //print(lineEnds)
         print("parse FAIL",
               //"at", fail.i,
               //"lastLineStart", lastLineStart ?? "nil",
               "line", lineEnds.reduce(1, { partialResult, range in
-            partialResult+String(text[range])!.count
+            partialResult+PEMachineCore.uniString(text[range]).count
         }),
-              "char", (String(text[(lastLineStart ?? text.startIndex)..<endIndex])?.count ?? 0)+1,
+              "char", (PEMachineCore.uniString(text[(lastLineStart ?? text.startIndex)..<endIndex]).count)+1,
               PEMachineCore.failText(text, endIndex) )
-        stack.reversed().forEach { (cs: (PEMachineCore.Symbols.Index, PEMachine.UniView.Index)) in
+        stack.reversed().forEach { (cs: (PEMachineCore.Symbols.Index, PEMachine.UniText.Index)) in
             print("   ", symbols[cs.0], PEMachineCore.failText(text, cs.1))
         }
     }

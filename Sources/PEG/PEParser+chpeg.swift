@@ -257,7 +257,7 @@ extension PEParser {
         
         private func range(_ e: Result.Context)->ClosedRange<UniText.Element> {
             //    CharRange   { } <- Char '-' !']' Char / Char
-            let chars = e.mapChildren(.Char) { uniText(char($0)) }
+            let chars = e.mapChildren(.Char) { uniChar(char($0)) }
             if chars.count == 1 {
                 return chars.first!...chars.first!
             } else {

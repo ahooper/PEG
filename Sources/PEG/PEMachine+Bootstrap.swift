@@ -99,15 +99,15 @@ extension PEMachine.Builder {
             program.append((n == 1) ? .any1 : .any(n))
         case .lit(let lit):
             if lit.count == 1 {
-                program.append(.chr(PEMachineCore.uc(lit).first!))
+                program.append(.chr(PEMachineCore.uniText(lit).first!))
             } else {
-                program.append(.lit(PEMachineCore.uc(lit.first!), PEMachineCore.uc(String(lit.dropFirst()))))
+                program.append(.lit(PEMachineCore.uniChar(lit.first!), PEMachineCore.uniText(String(lit.dropFirst()))))
             }
         case .chrs(let chrs):
             //program.append(.chrs(Self.uc(chrs)))
             program.append(.chrset(chrsBitSet(chrs)))
         case .range(let lower, let upper):
-            program.append(.range(PEMachineCore.uc(lower), PEMachineCore.uc(upper)))
+            program.append(.range(PEMachineCore.uniChar(lower), PEMachineCore.uniChar(upper)))
         case .call(let call):
             program.append(.call(call.rawValue))
         case .seq(let seq):
@@ -207,7 +207,7 @@ extension PEMachine.Builder {
     }
     
     private func chrsBitSet(_ chrs: String) -> BitSet {
-        return BitSet(PEMachineCore.uc(chrs).map({UInt32($0)}))
+        return BitSet(PEMachineCore.uniText(chrs).map({UInt32($0)}))
     }
 
 }

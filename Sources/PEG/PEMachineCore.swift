@@ -22,44 +22,48 @@ extension String.UTF16View: @retroactive Equatable {
 #else
 protocol DebugEquatable { }
 #endif
-
-public struct PEMachineCore: Sendable {
+public struct PEMachineCore {
     
     // The PEMachine itself is immutable. A separate Builder struct is used to
     // construct the program from a grammar.
     
     // The core is defined separately in hope the compiler will better optimize
-    // the core 'parse' function.
+    // the 'parse' function.
     
     public typealias Symbols = [String]
     public let symbols: Symbols
     
     // == Text representation ==
     
-    //  UTF16 is used for text elements to reduce the size of program instructions
-    //  containing them, to avoid varying length elements, and to match the
-    //  representation in NSAttributedString for  editors.
+    //  UTF16 is used for text elements to reduce the size of structures
+    //  containing them, to avoid repeated decoding of varying length elements,
+    //  and to match the representation in NSAttributedString for  editors.
+
+    public typealias UniText = Array<Unicode.UTF16.CodeUnit>
+        // Array seems to have a slight performance advantage over ContiguousArray
+    internal typealias UniChar = UniText.Element
+    internal static func uniText(_ s: String)->UniText { UniText(s.utf16) }
+    internal static func uniChar(_ c: Character)->UniChar { c.utf16.first! }
+    internal static func uniString(_ t: UniText)->String { String(validating: t, as: Unicode.UTF16.self)! }
+    internal static func uniString(_ ts: UniText.SubSequence)->String { String(validating: ts, as: Unicode.UTF16.self)! }
+    internal static func uniString(_ c: UniChar)->String { String(UnicodeScalar(c)!) }
+    
     //  TODO: Codable conformance to enable program save-reload, or is it sufficient
     //  to just load grammars in source form?
     //  https://forums.swift.org/t/why-is-character-not-codable/56178
-    
-    public typealias UniView = String.UTF16View
-    static func uc(_ s: String)->UniView { s.utf16 }
-    public typealias UniChar = UniView.Element
-    static func uc(_ c: Character)->UniChar { c.utf16.first! }
-    
+        
     // == Program instructions ==
     
     typealias Program = [Inst]
-    enum Inst: DebugEquatable, Sendable {
+    enum Inst: DebugEquatable {
         case any(Int)
         case any1
         case chr(UniChar)
-        case lit(UniChar,UniView)
-        case chrs(UniView)
+        case lit(UniChar,UniText)
+        case chrs(UniText)
         case chrset(BitSet)
         case chrset1(BitSet.Word)
-        case span(UniView)
+        case span(UniText)
         case spanset(BitSet)
         case spanset1(BitSet.Word)
         case range(UniChar,UniChar) //TODO?: multiple ranges?
@@ -91,23 +95,23 @@ public struct PEMachineCore: Sendable {
     
     // Many parse tree nodes are discarded in backtracking, so minimize
     // their construction cost.
-    public typealias Tree = LinearTree<Symbols.Index, Range<UniView.Index>>
+    public typealias Tree = LinearTree<Symbols.Index, Range<UniText.Index>>
     
     #if DEBUG
     struct CallStack {
         let ret: Program.Index,
-            index: UniView.Index,
+            index: UniText.Index,
             tree: Tree.Index
     }
     struct Fail {
-        let i: UniView.Index,
+        let i: UniText.Index,
             stack: ArraySlice<CallStack>
     }
     #endif
     
     // Non-generic result in hope of better optimization
     internal enum CoreResult {
-        case success(index: UniView.Index, tree: Tree)
+        case success(index: UniText.Index, tree: Tree)
         #if DEBUG
         case failure(Fail)
         #else
@@ -115,7 +119,7 @@ public struct PEMachineCore: Sendable {
         #endif
     }
 
-    func parse(_ sym: Symbols.Index, _ t: UniView, trace: Bool = false)->CoreResult {
+    func parse(_ sym: Symbols.Index, _ t: UniText, trace: Bool = false)->CoreResult {
         var i = t.startIndex,
             tree = Tree()
         #if DEBUG
@@ -329,17 +333,17 @@ public struct PEMachineCore: Sendable {
     // == Failure reporting ==
 
     #if DEBUG
-    internal func failReport(_ t: UniView, _ fail: Fail) {
-        let lineEnds = t[..<fail.i].indices(of: Self.uc("\n")).ranges,
+    internal func failReport(_ t: UniText, _ fail: Fail) {
+        let lineEnds = t[..<fail.i].indices(of: Self.uniChar("\n")).ranges,
             lastLineStart = lineEnds.last?.upperBound
         //print(lineEnds)
         print("parse FAIL",
               //"at", fail.i,
               //"lastLineStart", lastLineStart ?? "nil",
               "line", lineEnds.reduce(1, { partialResult, range in
-            partialResult+String(t[range])!.count
+            partialResult+PEMachineCore.uniString(t[range]).count
         }),
-              "char", (String(t[(lastLineStart ?? t.startIndex)..<fail.i])?.count ?? 0)+1,
+              "char", PEMachineCore.uniString(t[(lastLineStart ?? t.startIndex)..<fail.i]).count+1,
               PEMachineCore.failText(t, fail.i) )
         fail.stack.reversed().forEach { cs in
             if case let .call(call) = program[cs.ret-1] {
@@ -358,8 +362,8 @@ public struct PEMachineCore: Sendable {
         }
     }
 
-    internal static func failText(_ t: UniView, _ i: UniView.Index) -> String {
-        (String(t[i...])?.prefix(40) ?? "").debugDescription
+    internal static func failText(_ t: UniText, _ i: UniText.Index) -> String {
+        uniString(t[i..<t.endIndex]).prefix(40).debugDescription
     }
     #endif
 

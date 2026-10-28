@@ -12,11 +12,12 @@ public struct PEGFun {
     //  and to match the representation in NSAttributedString for  editors.
     
     public typealias UniText = Array<Unicode.UTF16.CodeUnit>
-    // Array seems to have a slight performance advantage over ContiguousArray
+        // Array seems to have a slight performance advantage over ContiguousArray
+    internal typealias UniChar = UniText.Element
     internal static func uniText(_ s: String)->UniText { UniText(s.utf16) }
-    internal static func uniText(_ c: Character)->UniText.Element { c.utf16.first! }
+    internal static func uniChar(_ c: Character)->UniChar { c.utf16.first! }
     internal static func uniString(_ t: UniText)->String { String(validating: t, as: Unicode.UTF16.self)! }
-    internal static func uniString(_ c: UniText.Element)->String { String(UnicodeScalar(c)!) }
+    internal static func uniString(_ c: UniChar)->String { String(UnicodeScalar(c)!) }
     
     public typealias SymbolRaw = Int
     public let symbols: [String]
@@ -133,7 +134,7 @@ public struct PEGFun {
         }
     }
     
-    static func range(_ c: UniText.Element, _ d: UniText.Element)->Op {
+    static func range(_ c: UniChar, _ d: UniChar)->Op {
         return { p, i in
             if i < p.text.endIndex, p.text[i] >= c, p.text[i] <= d {
                 return p.text.index(after: i)
@@ -144,7 +145,7 @@ public struct PEGFun {
     }
     
     static func range(_ c: Character, _ d: Character)->Op {
-        return range(uniText(c), uniText(d))
+        return range(uniChar(c), uniChar(d))
     }
     
     static func call(_ sRaw: SymbolRaw)->Op {
@@ -510,12 +511,12 @@ extension PEGFun {
             }
         }
         
-        func charRanges(_ e: Context)->[ClosedRange<UniText.Element>] {
+        func charRanges(_ e: Context)->[ClosedRange<UniChar>] {
             assert(e.symbol == .CharClass)
             return e.mapChildren(.CharRange, calling: range)
         }
         
-        func rangeBitSet(_ ranges: [ClosedRange<UniText.Element>]) -> BitSet {
+        func rangeBitSet(_ ranges: [ClosedRange<UniChar>]) -> BitSet {
             return BitSet(ranges.map({ UInt32($0.lowerBound)...UInt32($0.upperBound) }))
         }
         
@@ -553,9 +554,9 @@ extension PEGFun {
             }
         }
         
-        func range(_ e: Context)->ClosedRange<UniText.Element> {
+        func range(_ e: Context)->ClosedRange<UniChar> {
             //    CharRange   { } <- Char '-' !']' Char / Char
-            let chars = e.mapChildren(.Char) { uniText(char($0)) }
+            let chars = e.mapChildren(.Char) { uniChar(char($0)) }
             if chars.count == 1 {
                 return chars.first!...chars.first!
             } else {

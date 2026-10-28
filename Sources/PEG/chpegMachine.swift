@@ -1,4 +1,4 @@
-// generated 2026-10-13T10:17:13Z
+// generated 2026-10-26T16:04:23Z
 enum chpegMachineSymbol: Int, CaseIterable, Sendable {
     case
         Grammar,
@@ -22,7 +22,7 @@ enum chpegMachineSymbol: Int, CaseIterable, Sendable {
         Dot,
         S
 }
-let chpegMachine = PEMachine<chpegMachineSymbol>(
+nonisolated(unsafe) let chpegMachine = PEMachine<chpegMachineSymbol>(
     program: [
     // Grammar:
        /*0*/.call(19), // S
@@ -45,7 +45,7 @@ let chpegMachine = PEMachine<chpegMachineSymbol>(
        /*16*/.chr(125),
        /*17*/.call(19), // S
        /*18*/.commit(19),
-       /*19*/.lit(60, "-".utf16),
+       /*19*/.lit(60, PEMachineCore.uniText("-")),
        /*20*/.call(19), // S
        /*21*/.call(2), // Choice
        /*22*/.ret,

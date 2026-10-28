@@ -2,11 +2,26 @@ PEG parsing based on the Lua lpeg machine described
 by Ierusalimschy: https://www.inf.puc-rio.br/~roberto/docs/peg.pdf
 
 The grammar source format is that of chpeg, https://github.com/ChrisHixon/chpeg/blob/master/grammars/chpeg.chpeg,
-with the addition that a definition identifier starting with underscore is not added to the parse tree, and
-definition options other than "I" are ignored. Left-recursive definitions are detected but not handled.
+with the addition that a definition identifier starting with underscore
+is not added to the parse tree, and definition options other than "I" are
+ignored. Left-recursive definitions are detected but not handled.
 
-Speed is competitive with chpeg on a C lexical scanner for a large source file:
-    chpeg time 0.044919292 seconds
-    cpp-peglib time 0.027614583 seconds -38.5 %
-    PEMachine time 0.037643 seconds -16.2 %
-    text 455620 end 455621[utf8] nodes 55419
+Speed is competitive with cpp-peglib on a C lexical scanner for a large source file:
+    chpeg time 0.044929792 seconds
+    peglib time 0.027779792 seconds -38.2 %
+    text 455620 end 455620 nodes 55419
+    PEMachine time 0.02587575 seconds -42.4 %
+Key speed gains are from:
+    - decoding the subject string to an array of UTF16 code units,
+    - using the function call stack to save state for match failure,
+    - using a sequential tree structure,
+    - not removing tails of varying size array structures.
+A version of the machine using UnsafePointer gains even more:
+    text 455620 end 455620 nodes 55419
+    pointer machine time 0.019532209 seconds -56.5 %
+An alternate implementation using class functions does not exceed:
+    text 455620 end 455620 nodes 55419
+    PEParser time 0.027070666 seconds -39.7 %
+A third implementation using closures also does not exceed:
+    text 455620 end 455620 nodes 55419
+    PEGFun time 0.028257542 seconds -37.1 %

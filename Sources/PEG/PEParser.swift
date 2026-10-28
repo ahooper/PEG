@@ -15,10 +15,11 @@ public struct PEParser {
 
     public typealias UniText = Array<Unicode.UTF16.CodeUnit>
         // Array seems to have a slight performance advantage over ContiguousArray
+    internal typealias UniChar = UniText.Element
     internal static func uniText(_ s: String)->UniText { UniText(s.utf16) }
-    internal static func uniText(_ c: Character)->UniText.Element { c.utf16.first! }
+    internal static func uniChar(_ c: Character)->UniChar { c.utf16.first! }
     internal static func uniString(_ t: UniText)->String { String(validating: t, as: Unicode.UTF16.self)! }
-    internal static func uniString(_ c: UniText.Element)->String { String(UnicodeScalar(c)!) }
+    internal static func uniString(_ c: UniChar)->String { String(UnicodeScalar(c)!) }
 
     public typealias SymbolRaw = Int
     let symbols: [String]
@@ -229,9 +230,9 @@ public struct PEParser {
     }
     
     class Chr: Op {
-        let chr: UniText.Element
+        let chr: UniChar
         init(_ chr: Character) {
-            self.chr = PEParser.uniText(chr)
+            self.chr = PEParser.uniChar(chr)
         }
         override func parse(_ t: UniText, _ i: UniText.Index, _ res: inout State) -> UniText.Index? {
             if i < t.endIndex,
@@ -247,7 +248,7 @@ public struct PEParser {
     }
     
     class Lit: Op {
-        let first: UniText.Element, rest: UniText
+        let first: UniChar, rest: UniText
         init(_ lit: String) {
             let litt = uniText(lit)
             self.first = litt.first!
@@ -287,11 +288,11 @@ public struct PEParser {
     #endif
     
     class ChrRange: Op {
-        let chrr: ClosedRange<UniText.Element>
+        let chrr: ClosedRange<UniChar>
         init(_ lower: Character, _ upper: Character) {
-            self.chrr = PEParser.uniText(lower)...PEParser.uniText(upper)
+            self.chrr = PEParser.uniChar(lower)...PEParser.uniChar(upper)
         }
-        init(_ lower: UniText.Element, _ upper: UniText.Element) {
+        init(_ lower: UniChar, _ upper: UniChar) {
             self.chrr = lower...upper
         }
         override func parse(_ t: UniText, _ i: UniText.Index, _ res: inout State) -> UniText.Index? {
@@ -316,7 +317,7 @@ public struct PEParser {
             self.chrset = BitSet([UInt32](uniText(chrset).map{UInt32($0)}))
         }
         init(_ chrset: ClosedRange<Character>...) {
-            self.chrset = BitSet([ClosedRange<UInt32>](chrset.map{ UInt32( uniText($0.lowerBound))...UInt32(uniText($0.upperBound)) }))
+            self.chrset = BitSet([ClosedRange<UInt32>](chrset.map{ UInt32( uniChar($0.lowerBound))...UInt32(uniChar($0.upperBound)) }))
         }
         override func parse(_ t: UniText, _ i: UniText.Index, _ res: inout State) -> UniText.Index? {
             if i < t.endIndex,
@@ -358,7 +359,7 @@ public struct PEParser {
             self.spanset = BitSet([UInt32](uniText(spanset).map{UInt32($0)}))
         }
         init(_ spanset: ClosedRange<Character>...) {
-            self.spanset = BitSet([ClosedRange<UInt32>](spanset.map{ UInt32( uniText($0.lowerBound))...UInt32(uniText($0.upperBound)) }))
+            self.spanset = BitSet([ClosedRange<UInt32>](spanset.map{ UInt32( uniChar($0.lowerBound))...UInt32(uniChar($0.upperBound)) }))
         }
         override func parse(_ t: UniText, _ i: UniText.Index, _ res: inout State) -> UniText.Index? {
             var k = i

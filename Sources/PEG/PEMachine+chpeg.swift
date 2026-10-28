@@ -21,7 +21,7 @@ public struct PENamedSymbol: Sendable, RawRepresentable, Hashable, CustomStringC
     public var debugDescription: String { "\(name)(\(rawValue))" }
 }
 
-public let chpegParse = PEMachine<chpegSymbol>(grammar: chpegGrammar)
+nonisolated(unsafe) public let chpegParse = PEMachine<chpegSymbol>(grammar: chpegGrammar)
 
 extension PEMachine.Builder {
 
@@ -29,7 +29,7 @@ extension PEMachine.Builder {
         let mr = chpegParse.parse(.Grammar, source, trace: trace)
         switch mr {
         case let .success(success):
-            if success.endIndex == source.endIndex {
+            if success.endIndex == success.text.endIndex {
                 //r.tree.printTree(symbols: r.symbols)
                 self.init(success)
                 checkLeftRecursion(success)
@@ -276,10 +276,10 @@ extension PEMachine.Builder {
                         let charx = chari.filter{parse.tree[$0].has(chpegSymbol.Char)}
                         let chars = String(charx.map{char(parse,$0)})
                         if chars.count == 1 {
-                            program.append(.chr(PEMachineCore.uc(chars).first!))
+                            program.append(.chr(PEMachineCore.uniText(chars).first!))
                         } else /*if chars.count > 1*/ {
-                            program.append(.lit(PEMachineCore.uc(chars.first!),
-                                                PEMachineCore.uc(String(chars.dropFirst()))))
+                            program.append(.lit(PEMachineCore.uniChar(chars.first!),
+                                                PEMachineCore.uniText(String(chars.dropFirst()))))
                         }
                     } else {
                         // empty
@@ -297,7 +297,7 @@ extension PEMachine.Builder {
                     } else if ranges.allSatisfy({ $0.lowerBound == $0.upperBound }) {
                         let chrs = ranges.map{ Unicode.UTF16.CodeUnit($0.lowerBound) }
                         let cs = String(validating: chrs, as: UTF16.self)!
-                        program.append(.chrs(PEMachineCore.uc(cs)))
+                        program.append(.chrs(PEMachineCore.uniText(cs)))
                     } else {
                         // E / F / G:
                         //      alt a1
@@ -332,12 +332,12 @@ extension PEMachine.Builder {
     }
 
     private func charRanges(_ parse: PEMachine<chpegSymbol>.ParseResult.Success,
-                            _ ti: PEMachine.Tree.Index)->[ClosedRange<PEMachine.UniChar>] {
+                            _ ti: PEMachine.Tree.Index)->[ClosedRange<PEMachine.UniText.Element>] {
         let rangex = parse.tree.childIndices(ti)!.filter{parse.tree[$0].has(chpegSymbol.CharRange)}
         return rangex.map{range(parse,$0)}
     }
     
-    private func rangeBitSet(_ ranges: [ClosedRange<PEMachine.UniChar>]) -> BitSet {
+    private func rangeBitSet(_ ranges: [ClosedRange<PEMachine.UniText.Element>]) -> BitSet {
         return BitSet(ranges.map({ UInt32($0.lowerBound)...UInt32($0.upperBound) }))
     }
 
@@ -381,10 +381,10 @@ extension PEMachine.Builder {
     }
 
     private func range(_ parse: PEMachine<chpegSymbol>.ParseResult.Success,
-                       _ ti: PEMachine<chpegSymbol>.Tree.Index)->ClosedRange<PEMachine.UniChar> {
+                       _ ti: PEMachine<chpegSymbol>.Tree.Index)->ClosedRange<PEMachine.UniText.Element> {
         //    CharRange   { } <- Char '-' !']' Char / Char
         let charx = parse.tree.childIndices(ti)!.filter{parse.tree[$0].has(chpegSymbol.Char)}
-        let chars = charx.map{PEMachineCore.uc(char(parse,$0))}
+        let chars = charx.map{PEMachineCore.uniChar(char(parse,$0))}
         if chars.count == 1 {
             return chars.first!...chars.first!
         } else {
