@@ -104,7 +104,7 @@ struct testCore {
             """)!,
             text = " [tag1] [tag:2] [tag-3] ",
             parse = grammar.parse("ROOT", text).succeeded()
-        #expect(parse!.endIndex == text.endIndex)
+        #expect(String.Index(utf16Offset: parse!.endIndex, in: text) == text.endIndex)
         //parse!.tree.printTree(symbols: parse!.symbols)
         let root = parse!.tree.root
         #expect(parse!.tree[root].has(grammar.symbolIndex("ROOT")!))
@@ -133,7 +133,7 @@ struct testCore {
             parser = PEMachine(grammar: grammar),
             text = " [tag1] [tag:2] [tag-3] ",
             parse = parser.parse("ROOT", text).succeeded()
-        #expect(parse!.endIndex == text.endIndex)
+        #expect(String.Index(utf16Offset: parse!.endIndex, in: text) == text.endIndex)
         //parse!.tree.printTree(symbols: parse!.symbols)
         let root = parse!.tree.root
         #expect(parse!.tree[root].has(parser.symbolIndex("ROOT")!))
@@ -153,7 +153,7 @@ struct testCore {
             """)!,
             text = "Hello Two",
             parse = grammar.parse("START", text).succeeded()
-        #expect(parse!.endIndex == text.endIndex)
+        #expect(String.Index(utf16Offset: parse!.endIndex, in: text) == text.endIndex)
         //parse!.tree.printTree(symbols: grammar.symbols)
         let pat = Array(parse!.tree.childIndices(parse!.tree.root)!)
         #expect(pat.count == 1)
@@ -167,7 +167,7 @@ struct testCore {
             """)!,
             text = "ba",
             parse = grammar.parse("S", text).succeeded()
-        #expect(parse!.endIndex == text.endIndex)
+        #expect(String.Index(utf16Offset: parse!.endIndex, in: text) == text.endIndex)
         //parse!.tree.printTree(symbols: grammar.symbols)
         let s = Array(parse!.tree.childIndices(parse!.tree.root)!)
         #expect(s.count == 2)

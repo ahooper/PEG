@@ -380,11 +380,10 @@ extension PEGFun {
     
     static func grammar(_ parse: PEParser.Result<chpegSymbol>.Success)->Grammar {
         //parse.tree.printTree(symbols: parse.symbols)
-        let defSyms = [Tree.Index](parse.tree.childIndices(parse.tree.root)!).compactMap { di in
-            if parse.tree[di].has(chpegSymbol.Definition) {
-                var defi = parse.tree.childIndices(di)!
-                return parse.nodeString(defi.next()!)
-            } else { return nil }
+        let defSyms = parse.rootVisit.mapChildren { def in
+            //    Definition  { } <- Identifier S ('{' S Options S '}' S)? '<-' S Choice
+            //def[0].string
+            def[.Identifier]!.string
         }
         let symbols = [String: PEParser.NamedSymbol](uniqueKeysWithValues: defSyms.indices.map {
                                                 (defSyms[$0],
@@ -392,7 +391,7 @@ extension PEGFun {
         var ignore = defSyms.map { $0.starts(with: "_") }
         var defs = [Op](repeating: dummy, count: defSyms.count)
         //    Grammar     {S} <- S Definition+ !.
-        parse.rootContext.visitChildren { def in
+        parse.rootVisit.visitChildren { def in
             //    Definition  { } <- Identifier S ('{' S Options S '}' S)? '<-' S Choice
             let id = def[.Identifier]!.string,
                 idSymRaw: Int = symbols[id]!.rawValue
@@ -409,9 +408,8 @@ extension PEGFun {
         }
         return Grammar(symbols: defSyms, ignore: ignore, def: defs)
         
-        typealias Context = PEParser.Result<chpegSymbol>.Context
-        typealias PE = PEMachine<PEParser.NamedSymbol>.PE
-        func compile(_ e: Context)->Op {
+        typealias Visit = PEParser.Result<chpegSymbol>.Visit
+        func compile(_ e: Visit)->Op {
             switch e.symbol {
             case .Choice:
                 // TODO: optimize for keywords (all Sequences are Literal)
@@ -511,7 +509,7 @@ extension PEGFun {
             }
         }
         
-        func charRanges(_ e: Context)->[ClosedRange<UniChar>] {
+        func charRanges(_ e: Visit)->[ClosedRange<UniChar>] {
             assert(e.symbol == .CharClass)
             return e.mapChildren(.CharRange, calling: range)
         }
@@ -520,7 +518,7 @@ extension PEGFun {
             return BitSet(ranges.map({ UInt32($0.lowerBound)...UInt32($0.upperBound) }))
         }
         
-        func char(_ e: Context)->Character {
+        func char(_ e: Visit)->Character {
             //    Char        { } <- EscChar / OctChar / PlainChar
             let char = e[0]
             switch char.symbol {
@@ -554,7 +552,7 @@ extension PEGFun {
             }
         }
         
-        func range(_ e: Context)->ClosedRange<UniChar> {
+        func range(_ e: Visit)->ClosedRange<UniChar> {
             //    CharRange   { } <- Char '-' !']' Char / Char
             let chars = e.mapChildren(.Char) { uniChar(char($0)) }
             if chars.count == 1 {

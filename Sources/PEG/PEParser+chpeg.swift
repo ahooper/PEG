@@ -33,11 +33,10 @@ extension PEParser {
     
     init(_ parse: PEParser.Result<chpegSymbol>.Success) {
         //parse.tree.printTree(symbols: parse.symbols)
-        let defSyms = [Tree.Index](parse.tree.childIndices(parse.tree.root)!).compactMap { di in
-            if parse.tree[di].has(chpegSymbol.Definition) {
-                var defi = parse.tree.childIndices(di)!
-                return parse.nodeString(defi.next()!)
-            } else { return nil }
+        let defSyms = parse.rootVisit.mapChildren { def in
+            //    Definition  { } <- Identifier S ('{' S Options S '}' S)? '<-' S Choice
+            //def[0].string
+            def[.Identifier]!.string
         }
         //print(defSyms)
         let symbols = [String: NamedSymbol](uniqueKeysWithValues: defSyms.indices.map {
@@ -77,7 +76,7 @@ extension PEParser {
             self.rules = [Op](repeating: Fail(), count: symbols.count)
             self.ignore = [Bool](repeating: false, count: symbols.count)
             //    Grammar     {S} <- S Definition+ !.
-            parse.rootContext.visitChildren { def in
+            parse.rootVisit.visitChildren { def in
                 //    Definition  { } <- Identifier S ('{' S Options S '}' S)? '<-' S Choice
                 let id = def[.Identifier]!.string,
                     idSymRaw: Int = symbols[id]!.rawValue
@@ -94,7 +93,7 @@ extension PEParser {
             }
         }
         
-        func compile(_ e: Result.Context)->Op {
+        func compile(_ e: Result.Visit)->Op {
             switch e.symbol {
             case .Choice:
                 // TODO: optimize for keywords (all Sequences are Literal)
@@ -212,7 +211,7 @@ extension PEParser {
             }
         }
         
-        private func charRanges(_ e: Result.Context)->[ClosedRange<UniText.Element>] {
+        private func charRanges(_ e: Result.Visit)->[ClosedRange<UniText.Element>] {
             assert(e.symbol == .CharClass)
             return e.mapChildren(calling: range)
         }
@@ -221,7 +220,7 @@ extension PEParser {
             return BitSet(ranges.map({ UInt32($0.lowerBound)...UInt32($0.upperBound) }))
         }
         
-        private func char(_ e: Result.Context)->Character {
+        private func char(_ e: Result.Visit)->Character {
             //    Char        { } <- EscChar / OctChar / PlainChar
             let char = e[0]
             switch char.symbol {
@@ -255,7 +254,7 @@ extension PEParser {
             }
         }
         
-        private func range(_ e: Result.Context)->ClosedRange<UniText.Element> {
+        private func range(_ e: Result.Visit)->ClosedRange<UniText.Element> {
             //    CharRange   { } <- Char '-' !']' Char / Char
             let chars = e.mapChildren(.Char) { uniChar(char($0)) }
             if chars.count == 1 {

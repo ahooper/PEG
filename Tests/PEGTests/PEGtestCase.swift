@@ -14,7 +14,7 @@ extension PEMachine {
         if let tail {
             switch pres {
             case let .success(s):
-                #expect(text[s.endIndex...] == tail)
+                #expect(text.substring(from: String.Index(utf16Offset: s.endIndex, in: text)) == tail)
             case let .failure(f):
                 print("testCase", name.debugDescription, text.debugDescription, tail.debugDescription, "failure")
                 #if DEBUG

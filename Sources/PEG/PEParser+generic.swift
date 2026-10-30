@@ -82,7 +82,7 @@ extension PEParser {
             public func nodeId(_ index: Tree.Index)->Int {
                 tree[index].identifier
             }
-            var rootContext: Context { Context(result: self, index: tree.root) }
+            var rootVisit: Visit { Visit(result: self, index: tree.root) }
         }
         public struct Failure {
             #if DEBUG
@@ -95,7 +95,7 @@ extension PEParser {
         case success(Success)
         case failure(Failure)
         
-        public struct Context: Sequence, IteratorProtocol {
+        public struct Visit: Sequence, IteratorProtocol {
             private let result: Success
             internal var index: Tree.Index
             public var symbol: Symbol { result.nodeSymbol(index) }
@@ -104,31 +104,31 @@ extension PEParser {
                 self.result = result
                 self.index = index
             }
-            public func visitChildren(calling: (Context)->Void) {
+            public func visitChildren(calling: (Visit)->Void) {
                 let first = result.tree.nodes[index].first
                 if first == index { return } // no children
-                var childContext = Context(result: result, index: first)
-                while childContext.index != /*LAST*/-1 {
-                    calling(childContext)
-                    childContext.index = result.tree.nodes[childContext.index].next
+                var childVisit = Visit(result: result, index: first)
+                while childVisit.index != /*LAST*/-1 {
+                    calling(childVisit)
+                    childVisit.index = result.tree.nodes[childVisit.index].next
                 }
             }
-            public func mapChildren<T>(calling: (Context)->T)->[T] {
+            public func mapChildren<T>(calling: (Visit)->T)->[T] {
                 let first = result.tree.nodes[index].first
                 if first == index { return [] } // no children
-                var childContext = Context(result: result, index: first),
+                var childVisit = Visit(result: result, index: first),
                     mapped = [T]()
-                while childContext.index != /*LAST*/-1 {
-                    mapped.append(calling(childContext))
-                    childContext.index = result.tree.nodes[childContext.index].next
+                while childVisit.index != /*LAST*/-1 {
+                    mapped.append(calling(childVisit))
+                    childVisit.index = result.tree.nodes[childVisit.index].next
                 }
                 return mapped
             }
-            public func mapChildren<T>(_ sym: Symbol, calling: (Context)->T)->[T]
+            public func mapChildren<T>(_ sym: Symbol, calling: (Visit)->T)->[T]
                                     where Symbol: Equatable {
                 let first = result.tree.nodes[index].first
                 if first == index { return [] } // no children
-                var childContext = Context(result: result, index: first),
+                var childContext = Visit(result: result, index: first),
                     mapped = [T]()
                 while childContext.index != /*LAST*/-1 {
                     if childContext.symbol == sym {
@@ -138,22 +138,23 @@ extension PEParser {
                 }
                 return mapped
             }
-            public subscript(child: Int)->Context {
+            public subscript(child: Int)->Visit {
                 var c = result.tree.nodes[index].first,
                     skip = child
                 if c == index { preconditionFailure("Index out of bounds") } // no children
                 while skip > 0 {
                     if c == /*LAST*/-1 { preconditionFailure("Index out of bounds") }
                     c = result.tree.nodes[c].next
+                    skip -= 1
                 }
-                return Context(result: result, index: c)
+                return Visit(result: result, index: c)
             }
-            public subscript(child: Symbol)->Context? where Symbol: Equatable {
+            public subscript(child: Symbol)->Visit? where Symbol: Equatable {
                 var c = result.tree.nodes[index].first
                 if c == index { return nil } // no children
                 while c != /*LAST*/-1 {
                     if result.nodeSymbol(c) == child {
-                        return Context(result: result, index: c)
+                        return Visit(result: result, index: c)
                     }
                     c = result.tree.nodes[c].next
                 }
@@ -162,16 +163,16 @@ extension PEParser {
             
             // == Sequence conformance ==
             
-            public typealias Element = Context
-            public mutating func next() -> Context? {
+            public typealias Element = Visit
+            public mutating func next() -> Visit? {
                 if index == /*LAST*/-1 { return nil }
                 let i = index
                 index = result.tree.nodes[index].next
-                return Context(result: result, index: i)
+                return Visit(result: result, index: i)
             }
-            public func makeIterator() -> Context {
+            public func makeIterator() -> Visit {
                 precondition(result.tree.nodes[index].first != /*LEAF*/-1)
-                return Context(result: result, index: result.tree.nodes[index].first)
+                return Visit(result: result, index: result.tree.nodes[index].first)
             }
 
         }

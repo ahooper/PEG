@@ -32,13 +32,13 @@ struct PEGSelf {
         
         let c1 = PEMachine(grammar: chpegGrammar)
         let m1 = c1.parse("Grammar", chpegSource, trace: false).succeeded()!
-        #expect(m1.endIndex == chpegSource.endIndex)
+        #expect(String.Index(utf16Offset: m1.endIndex, in: chpegSource) == chpegSource.endIndex)
         let c2 = PEMachine(chpegSource)!
         let m2 = c2.parse("Grammar", chpegSource).succeeded()!
-        #expect(m2.endIndex == chpegSource.endIndex)
+        #expect(String.Index(utf16Offset: m2.endIndex, in: chpegSource) == chpegSource.endIndex)
         let c3 = PEMachine(chpegSource)!
         let m3 = c3.parse("Grammar", chpegSource).succeeded()
-        #expect(m3?.endIndex == chpegSource.endIndex)
+        #expect(String.Index(utf16Offset: m3!.endIndex, in: chpegSource) == chpegSource.endIndex)
         #expect(c2.core.program.count == c3.core.program.count)
         #expect(c2.core.program == c3.core.program)
         #expect(c2.symbols == c3.symbols)
